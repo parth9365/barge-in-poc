@@ -56,7 +56,7 @@ class APIConfig:
     """
 
     stt_model: str = "whisper-1"
-    llm_model: str = "gpt-4o"
+    llm_model: str = "gpt-4o-mini"
     tts_model: str = "gpt-4o-mini-tts"
     tts_voice: str = "coral"
     tts_response_format: str = "pcm"
