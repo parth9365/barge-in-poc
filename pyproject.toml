@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "barge-in-demo"
+version = "0.1.0"
+description = "Voice conversation POC with barge-in support"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0",
+    "sounddevice>=0.5",
+    "numpy>=1.24",
+    "torch>=2.0",
+    "torchaudio>=2.0",
+    "python-dotenv>=1.0",
+    "fastapi>=0.104",
+    "uvicorn[standard]>=0.24",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
