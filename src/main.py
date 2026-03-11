@@ -25,12 +25,15 @@ from src.config import (
     AudioConfig,
     ConversationConfig,
     PipelineConfig,
+    RAGConfig,
     VADConfig,
 )
 from src.controller import ConversationController
 from src.conversation import ConversationHistory
 from src.services.llm import LLMService
+from src.services.rag import KnowledgeBase
 from src.services.stt import STTService
+from src.services.tools import TOOL_DEFINITIONS, ToolExecutor
 from src.services.tts import TTSService
 from src.utils import setup_logging
 
@@ -60,6 +63,12 @@ async def main() -> None:
     api_config = APIConfig()
     pipeline_config = PipelineConfig()
     conversation_config = ConversationConfig()
+    rag_config = RAGConfig()
+
+    # -- RAG knowledge base --
+    knowledge_base = KnowledgeBase(config=rag_config, client=client)
+    await knowledge_base.initialize()
+    tool_executor = ToolExecutor(knowledge_base)
 
     # -- Components --
     loop = asyncio.get_running_loop()
@@ -67,7 +76,12 @@ async def main() -> None:
     playback = AudioPlayback(config=audio_config)
     vad = VADProcessor(audio_config=audio_config, vad_config=vad_config)
     stt = STTService(client=client, config=api_config)
-    llm = LLMService(client=client, config=api_config)
+    llm = LLMService(
+        client=client,
+        config=api_config,
+        tools=TOOL_DEFINITIONS,
+        tool_executor=tool_executor,
+    )
     tts = TTSService(client=client, config=api_config)
     history = ConversationHistory(config=conversation_config)
 

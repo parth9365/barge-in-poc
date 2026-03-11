@@ -78,6 +78,25 @@ class PipelineConfig:
 
 
 @dataclass(frozen=True)
+class RAGConfig:
+    """RAG pipeline configuration.
+
+    Attributes:
+        data_dir: Path to the knowledge base markdown files.
+        chroma_dir: Path to the ChromaDB persistent storage.
+        embedding_model: OpenAI embedding model name.
+        chunk_max_chars: Maximum characters per chunk when splitting documents.
+        search_results: Number of results to return from similarity search.
+    """
+
+    data_dir: str = "data/knowledge_base"
+    chroma_dir: str = "data/chroma_db"
+    embedding_model: str = "text-embedding-3-small"
+    chunk_max_chars: int = 800
+    search_results: int = 5
+
+
+@dataclass(frozen=True)
 class ConversationConfig:
     """Conversation history settings.
 
@@ -87,7 +106,21 @@ class ConversationConfig:
     """
 
     system_prompt: str = (
-        "You are a helpful voice assistant. "
-        "Keep responses concise and conversational."
+        "You are a helpful voice assistant for NovaTech Solutions. "
+        "You have access to the NovaTech knowledge base through the search_knowledge_base tool.\n\n"
+        "Rules:\n"
+        "1. ALWAYS use the search_knowledge_base tool before answering questions about "
+        "NovaTech, NovaBoard, pricing, features, API, troubleshooting, or security.\n"
+        "2. Base your answers strictly on the retrieved information. Do not make up facts.\n"
+        "3. If the knowledge base does not contain the answer, say so honestly and offer "
+        "to help with what you do know.\n"
+        "4. When citing information, mention the source document naturally "
+        '(e.g., "According to the pricing guide...").\n'
+        "5. After answering, suggest 2-3 related follow-up questions the user might want to ask. "
+        'Phrase them naturally as speech, like "You might also want to know about..." or '
+        '"Would you like to hear about...".\n'
+        "6. Keep responses concise and conversational -- this is voice output.\n"
+        "7. If the user asks for sources or references, use the get_source_details tool "
+        "to provide document information."
     )
     max_history_messages: int = 50

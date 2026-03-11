@@ -39,12 +39,15 @@ from src.config import (
     AudioConfig,
     ConversationConfig,
     PipelineConfig,
+    RAGConfig,
     VADConfig,
 )
 from src.controller import ConversationController
 from src.conversation import ConversationHistory
 from src.services.llm import LLMService
+from src.services.rag import KnowledgeBase
 from src.services.stt import STTService
+from src.services.tools import TOOL_DEFINITIONS, ToolExecutor
 from src.services.tts import TTSService
 from src.types import ConversationState
 from src.web.audio_capture import WebSocketAudioCapture
@@ -59,6 +62,19 @@ app = FastAPI(title="Voice Conversation POC")
 # Serve the frontend from src/web/static/.
 _STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+# Shared RAG knowledge base (initialized once at startup, read-only after).
+_knowledge_base: KnowledgeBase | None = None
+
+
+@app.on_event("startup")
+async def _startup_rag() -> None:
+    """Initialize the RAG knowledge base on server startup."""
+    global _knowledge_base  # noqa: PLW0603
+    rag_config = RAGConfig()
+    _knowledge_base = KnowledgeBase(config=rag_config, client=AsyncOpenAI())
+    await _knowledge_base.initialize()
+    logger.info("RAG knowledge base initialized")
 
 
 @app.get("/")
@@ -85,7 +101,15 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     playback = WebSocketAudioPlayback(ws)
     vad = VADProcessor(audio_config=audio_config, vad_config=vad_config)
     stt = STTService(client=client, config=api_config)
-    llm = LLMService(client=client, config=api_config)
+
+    # Set up RAG-powered LLM with tool calling.
+    tool_executor = ToolExecutor(_knowledge_base) if _knowledge_base else None
+    llm = LLMService(
+        client=client,
+        config=api_config,
+        tools=TOOL_DEFINITIONS if _knowledge_base else None,
+        tool_executor=tool_executor,
+    )
     tts = TTSService(client=client, config=api_config)
     history = ConversationHistory(config=conversation_config)
 

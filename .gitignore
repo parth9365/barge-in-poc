@@ -6,3 +6,4 @@ __pycache__/
 *.pyc
 .env
 pip-ephem-wheel-cache-*/
+data/chroma_db/

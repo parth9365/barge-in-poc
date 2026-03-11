@@ -115,6 +115,18 @@ class ConversationController:
         audio_queue = self._capture.get_queue()
         logger.info("Controller started -- state: IDLE")
 
+        # Play a greeting to introduce the assistant.
+        await self._play_greeting()
+
+        # Drain any audio that accumulated during the greeting so stale
+        # chunks (noise, speaker bleed) don't trigger the VAD.
+        while not audio_queue.empty():
+            try:
+                audio_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+        self._vad.reset()
+
         try:
             while not self._shutdown:
                 try:
@@ -193,6 +205,45 @@ class ConversationController:
                 self._speech_buffer.clear()
                 self._speech_buffer.append(chunk)
                 self._set_state(ConversationState.LISTENING)
+
+    # -- Greeting ---------------------------------------------------------
+
+    _GREETING = (
+        "Hi there! I'm your NovaTech assistant. "
+        "I can help you with NovaBoard features, pricing plans, "
+        "API documentation, troubleshooting, and security details. "
+        "What would you like to know?"
+    )
+
+    async def _play_greeting(self) -> None:
+        """Speak a greeting message to introduce the assistant."""
+        try:
+            self._set_state(ConversationState.SPEAKING)
+            greeting = self._GREETING
+
+            pcm_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
+
+            async def _tts_greeting() -> None:
+                async for pcm_chunk in self._tts.stream_speech(greeting):
+                    await pcm_queue.put(pcm_chunk)
+                await pcm_queue.put(None)
+
+            tts_task = asyncio.create_task(_tts_greeting())
+            playback_task = asyncio.create_task(self._run_playback(pcm_queue))
+
+            await asyncio.gather(tts_task, playback_task)
+
+            self._history.add_assistant_message(greeting)
+            if self._on_transcript is not None:
+                self._on_transcript("assistant", greeting)
+            logger.info("Greeting played: %s", greeting)
+
+            self._set_state(ConversationState.IDLE)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Failed to play greeting, continuing without it")
+            self._set_state(ConversationState.IDLE)
 
     # -- Pipeline ---------------------------------------------------------
 
